@@ -15,7 +15,8 @@
  */
 
 
-const OPEN_TIMEOUT_MS = 5000;
+// [helium patch] Chromium holds new WebSockets back by up to ~5 s after failed ones, so 5 s made each retry fail again.
+const OPEN_TIMEOUT_MS = 30_000;
 
 export class Channel {
   private _ws: WebSocket;

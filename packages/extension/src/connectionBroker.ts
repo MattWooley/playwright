@@ -15,6 +15,7 @@
  */
 
 
+import { closeTabsInAutomationWindow, isInAutomationWindow } from './automationWindow';
 import { Channel } from './channel';
 import { ClientSession } from './clientSession';
 
@@ -73,7 +74,9 @@ export class ConnectionBroker {
     session.onClose = () => {
       this._sessions.delete(sessionId);
       this._didChangeActivity();
-      void this._registry.releaseAll(session);
+      // [helium patch] Close the tabs of the client that are in the automation window. The others stay open.
+      const tabIds = this._registry.tabIdsOf(session);
+      void this._registry.releaseAll(session).then(() => closeTabsInAutomationWindow(tabIds));
       void this._groups.orphan(session);
     };
 
@@ -114,9 +117,11 @@ export class ConnectionBroker {
   private async _show(tabs: chrome.tabs.Tab[], connectTabId: number, background: boolean): Promise<void> {
     const [firstTab] = tabs;
     if (firstTab && !background) {
+      // [helium patch] Do not raise the automation window over the windows of the user.
+      const raise = !await isInAutomationWindow(firstTab).catch(() => false);
       await Promise.all([
         chrome.tabs.update(firstTab.id!, { active: true }),
-        chrome.windows.update(firstTab.windowId, { focused: true }),
+        raise ? chrome.windows.update(firstTab.windowId, { focused: true }) : undefined,
       ]).catch(() => {});
     }
     if (!tabs.some(tab => tab.id === connectTabId))

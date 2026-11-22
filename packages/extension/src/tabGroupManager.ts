@@ -40,7 +40,12 @@ class ClientTabGroup {
   async add(tabId: number): Promise<void> {
     const isNewGroup = await changeGroups(async () => {
       const isNewGroup = this.groupId === undefined;
-      this.groupId = await chrome.tabs.group({ groupId: this.groupId, tabIds: [tabId] });
+      // [helium patch] Make a new group in the window of the tab. Without a window id, Chrome makes it in the
+      // focused window and moves the tab there, out of the automation window.
+      const options: chrome.tabs.GroupOptions = isNewGroup
+        ? { tabIds: [tabId], createProperties: { windowId: (await chrome.tabs.get(tabId)).windowId } }
+        : { groupId: this.groupId, tabIds: [tabId] };
+      this.groupId = await chrome.tabs.group(options);
       return isNewGroup;
     });
     if (isNewGroup)

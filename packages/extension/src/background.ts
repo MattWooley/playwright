@@ -15,6 +15,7 @@
  */
 
 
+import { closeLeftoverAutomationWindows } from './automationWindow';
 import { ChromeListeners } from './chromeListeners';
 import { ConnectionBroker } from './connectionBroker';
 import { TabGroupManager } from './tabGroupManager';
@@ -32,7 +33,7 @@ class Extension {
     const listeners = new ChromeListeners();
     const registry = new TabRegistry(listeners);
     const groups = new TabGroupManager(registry, listeners);
-    this._ready = Promise.all([registry.ready, groups.ready]);
+    this._ready = Promise.all([registry.ready, groups.ready, closeLeftoverAutomationWindows()]);
     this._picker = new TabPicker(registry, groups);
     this._broker = new ConnectionBroker(registry, groups, this._picker, listeners);
     chrome.runtime.onMessage.addListener(this._onMessage.bind(this));

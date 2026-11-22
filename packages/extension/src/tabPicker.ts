@@ -15,6 +15,7 @@
  */
 
 
+import { moveToAutomationWindow } from './automationWindow';
 import { isDebuggableUrl } from './ownedTab';
 
 import type { ClientSession } from './clientSession';
@@ -64,6 +65,8 @@ export class TabPicker {
     }
     if (selection.tabIds?.length)
       return await Promise.all(selection.tabIds.map(tabId => chrome.tabs.get(tabId)));
+    // [helium patch] The blank tab of the client goes to the automation window, not the window of the user.
+    await moveToAutomationWindow(connectTabId).catch(error => console.log('[Extension] Could not move tab to the automation window:', error));
     const blankTab = await chrome.tabs.update(connectTabId, { url: 'about:blank' });
     return [blankTab!];
   }

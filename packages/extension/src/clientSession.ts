@@ -15,6 +15,7 @@
  */
 
 
+import { automationWindowId, moveToAutomationWindow } from './automationWindow';
 import { checkCdpMethod } from './cdpPolicy';
 
 import type { Channel } from './channel';
@@ -83,7 +84,11 @@ export class ClientSession {
       }
       case 'chrome.tabs.create': {
         const [{ url, active }] = params;
-        const tab = await chrome.tabs.create({ url, active });
+        // [helium patch] Open the tab next to the other tabs of the client, not in the focused window.
+        const windowId = await this._windowForNewTab();
+        let tab = await chrome.tabs.create({ url, active, windowId });
+        if (windowId === undefined)
+          tab = await moveToAutomationWindow(tab.id!).catch(() => tab);
         // The response announces the tab to the client.
         if (!this._channel.closed)
           this._registry.claim(tab, this, { announce: false });
@@ -97,6 +102,16 @@ export class ClientSession {
       }
     }
     throw new Error(`Unknown method: ${method}`);
+  }
+
+  // [helium patch] The window of a tab that the client owns, else the automation window.
+  private async _windowForNewTab(): Promise<number | undefined> {
+    for (const tabId of this._registry.tabIdsOf(this)) {
+      const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+      if (tab)
+        return tab.windowId;
+    }
+    return await automationWindowId();
   }
 
   private _ownedTab(target: chrome.debugger.Debuggee): OwnedTab {
